@@ -61,7 +61,7 @@ class IntegratedDetectionNode(LifecycleNode):
         # YOLO 파라미터
         self.declare_parameter("model_type", "YOLO")
         self.declare_parameter("model", "/ros2_ws/src/yolo_ros/yolo_ros/model/wooden_cube.pt")
-        self.declare_parameter("device", "cpu")
+        self.declare_parameter("device", "cuda:0")
         self.declare_parameter("fuse_model", False)
         self.declare_parameter("yolo_encoding", "bgr8")
         self.declare_parameter("threshold", 0.5)
