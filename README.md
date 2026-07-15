@@ -5,7 +5,6 @@
 ![ROS 2](https://img.shields.io/badge/ROS_2-Humble%20~%20Rolling-22314E?logo=ros&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3-3776AB?logo=python&logoColor=white)
 ![Ultralytics YOLO](https://img.shields.io/badge/Ultralytics_YOLO-8.4.6-0B23A9?logo=pytorch&logoColor=white)
-![License](https://img.shields.io/badge/License-GPL--3.0-green)
 
 ---
 
