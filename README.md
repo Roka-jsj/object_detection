@@ -7,8 +7,6 @@
 ![Ultralytics YOLO](https://img.shields.io/badge/Ultralytics_YOLO-8.4.6-0B23A9?logo=pytorch&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPL--3.0-green)
 
-Author: **정승준 (SEUNG JOON JEONG)** · GitHub [@Roka-jsj](https://github.com/Roka-jsj)
-Base framework: [mgonzs13/yolo_ros](https://github.com/mgonzs13/yolo_ros) (Miguel Á. González-Santamarta) — fork, GPL-3.0
 
 ---
 
