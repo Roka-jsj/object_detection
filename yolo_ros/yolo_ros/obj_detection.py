@@ -48,7 +48,7 @@ from yolo_msgs.srv import GetTargetPosition
 class IntegratedDetectionNode(LifecycleNode):
     """
     통합 객체 탐지 노드
-    
+
     서비스 요청을 받으면 YOLO 추론을 수행하고 3D position까지 계산하여 반환합니다.
     """
 
@@ -60,7 +60,9 @@ class IntegratedDetectionNode(LifecycleNode):
 
         # YOLO 파라미터
         self.declare_parameter("model_type", "YOLO")
-        self.declare_parameter("model", "/ros2_ws/src/yolo_ros/yolo_ros/model/wooden_cube.pt")
+        self.declare_parameter(
+            "model", "/ros2_ws/src/yolo_ros/yolo_ros/model/wooden_cube.pt"
+        )
         self.declare_parameter("device", "cuda:0")
         self.declare_parameter("fuse_model", False)
         self.declare_parameter("yolo_encoding", "bgr8")
@@ -81,20 +83,22 @@ class IntegratedDetectionNode(LifecycleNode):
         self.declare_parameter("depth_info_topic", "/camera/depth/camera_info")
         self.declare_parameter("color_info_topic", "/camera/color/camera_info")
         self.declare_parameter("image_reliability", QoSReliabilityPolicy.BEST_EFFORT)
-        self.declare_parameter("depth_image_reliability", QoSReliabilityPolicy.BEST_EFFORT)
+        self.declare_parameter(
+            "depth_image_reliability", QoSReliabilityPolicy.BEST_EFFORT
+        )
         self.declare_parameter("depth_info_reliability", QoSReliabilityPolicy.BEST_EFFORT)
         self.declare_parameter("service_name", "get_target_position")
         self.declare_parameter("match_substring", True)
         self.declare_parameter("use_tf", True)
 
         self.type_to_model = {"YOLO": YOLO, "World": YOLOWorld, "YOLOE": YOLOE}
-        
+
         # 최신 메시지 저장
         self._latest_image_msg = None
         self._latest_depth_msg = None
         self._latest_depth_info_msg = None
         self._color_info = None
-        
+
         # 유틸리티
         self.cv_bridge = CvBridge()
         self.tf_buffer = Buffer()
@@ -147,9 +151,7 @@ class IntegratedDetectionNode(LifecycleNode):
 
         # QoS 프로파일 설정
         reliability = (
-            self.get_parameter("image_reliability")
-            .get_parameter_value()
-            .integer_value
+            self.get_parameter("image_reliability").get_parameter_value().integer_value
         )
         self.image_qos_profile = QoSProfile(
             reliability=reliability,
@@ -225,9 +227,15 @@ class IntegratedDetectionNode(LifecycleNode):
 
         # 구독 생성
         image_topic = self.get_parameter("image_topic").get_parameter_value().string_value
-        depth_image_topic = self.get_parameter("depth_image_topic").get_parameter_value().string_value
-        depth_info_topic = self.get_parameter("depth_info_topic").get_parameter_value().string_value
-        color_info_topic = self.get_parameter("color_info_topic").get_parameter_value().string_value
+        depth_image_topic = (
+            self.get_parameter("depth_image_topic").get_parameter_value().string_value
+        )
+        depth_info_topic = (
+            self.get_parameter("depth_info_topic").get_parameter_value().string_value
+        )
+        color_info_topic = (
+            self.get_parameter("color_info_topic").get_parameter_value().string_value
+        )
 
         self._sub_image = self.create_subscription(
             Image, image_topic, self._on_image, self.image_qos_profile
@@ -350,9 +358,9 @@ class IntegratedDetectionNode(LifecycleNode):
         try:
             # 1. 요청 파라미터 확인
             query = ""
-            if hasattr(request, 'target_name'):
+            if hasattr(request, "target_name"):
                 query = request.target_name.strip()
-            elif hasattr(request, 'class_name'):
+            elif hasattr(request, "class_name"):
                 query = request.class_name.strip()
 
             if not query:
@@ -414,7 +422,9 @@ class IntegratedDetectionNode(LifecycleNode):
                     break
 
             # substring 매칭
-            if found_detection is None and bool(self.get_parameter("match_substring").value):
+            if found_detection is None and bool(
+                self.get_parameter("match_substring").value
+            ):
                 for det in detections:
                     det_key = self._norm_name(det.class_name)
                     if key_q in det_key or det_key in key_q:
@@ -429,11 +439,11 @@ class IntegratedDetectionNode(LifecycleNode):
                 return response
 
             # 6. 3D position 계산
-            self.get_logger().info(f"[Service] Computing 3D position for '{found_detection.class_name}'...")
+            self.get_logger().info(
+                f"[Service] Computing 3D position for '{found_detection.class_name}'..."
+            )
             bbox3d = self._convert_bb_to_3d(
-                self._latest_depth_msg,
-                self._latest_depth_info_msg,
-                found_detection
+                self._latest_depth_msg, self._latest_depth_info_msg, found_detection
             )
 
             if bbox3d is None:
@@ -442,7 +452,9 @@ class IntegratedDetectionNode(LifecycleNode):
 
             # 7. TF 변환 (필요한 경우)
             if bool(self.get_parameter("use_tf").value):
-                transform = self._get_transform(self._latest_depth_info_msg.header.frame_id)
+                transform = self._get_transform(
+                    self._latest_depth_info_msg.header.frame_id
+                )
                 if transform is not None:
                     bbox3d = self._transform_3d_box(bbox3d, transform[0], transform[1])
                     bbox3d.frame_id = self.target_frame
@@ -504,6 +516,7 @@ class IntegratedDetectionNode(LifecycleNode):
 
         # Bounding boxes 파싱
         from yolo_msgs.msg import BoundingBox2D
+
         boxes_list = []
         if results.boxes:
             for box_data in results.boxes:
@@ -535,6 +548,7 @@ class IntegratedDetectionNode(LifecycleNode):
             detections.append(det)
 
         return detections
+
     def _convert_bb_to_3d(
         self, depth_msg: Image, depth_info: CameraInfo, detection: Detection
     ) -> Optional[BoundingBox3D]:
@@ -569,9 +583,11 @@ class IntegratedDetectionNode(LifecycleNode):
             v_center = max(0, min(img_h - 1, v_center))
 
             # 중심 주변에서 유효한 깊이 값 찾기 (스파이럴 탐색)
-            max_radius = min(int(depth_w / 2), int(depth_h / 2), 50)  # 최대 탐색 반경 제한
+            max_radius = min(
+                int(depth_w / 2), int(depth_h / 2), 50
+            )  # 최대 탐색 반경 제한
             found_u, found_v, z_raw = None, None, None
-            
+
             # 중심부터 시작해서 주변을 탐색
             for radius in range(max_radius + 1):
                 if radius == 0:
@@ -589,27 +605,27 @@ class IntegratedDetectionNode(LifecycleNode):
                             # 원의 경계만 확인 (내부는 이미 확인됨)
                             if abs(du) != radius and abs(dv) != radius:
                                 continue
-                            
+
                             u = u_center + du
                             v = v_center + dv
-                            
+
                             # 이미지 범위 체크
                             if u < 0 or u >= img_w or v < 0 or v >= img_h:
                                 continue
-                            
+
                             depth_val = float(depth_image[v, u])
                             if np.isfinite(depth_val) and depth_val > 0:
                                 found_u, found_v = u, v
                                 z_raw = depth_val
                                 found = True
                                 break
-                        
+
                         if found:
                             break
-                    
+
                     if found:
                         break
-            
+
             # 유효한 깊이 값을 찾지 못한 경우
             if z_raw is None or z_raw <= 0:
                 self.get_logger().warn(
@@ -657,7 +673,6 @@ class IntegratedDetectionNode(LifecycleNode):
             msg.size.z = float(max(0.0, h))
             msg.distance = float(np.linalg.norm([robot_x, robot_y, robot_z]))
 
-
             self.get_logger().debug(
                 f"[3D] Success: position=({robot_x:.3f}, {robot_y:.3f}, {robot_z:.3f}), "
                 f"depth={z:.3f}m at ({found_u}, {found_v}), "
@@ -679,18 +694,22 @@ class IntegratedDetectionNode(LifecycleNode):
                 self.target_frame, frame_id, rclpy.time.Time()
             )
 
-            translation = np.array([
-                transform.transform.translation.x,
-                transform.transform.translation.y,
-                transform.transform.translation.z,
-            ])
+            translation = np.array(
+                [
+                    transform.transform.translation.x,
+                    transform.transform.translation.y,
+                    transform.transform.translation.z,
+                ]
+            )
 
-            rotation = np.array([
-                transform.transform.rotation.w,
-                transform.transform.rotation.x,
-                transform.transform.rotation.y,
-                transform.transform.rotation.z,
-            ])
+            rotation = np.array(
+                [
+                    transform.transform.rotation.w,
+                    transform.transform.rotation.x,
+                    transform.transform.rotation.y,
+                    transform.transform.rotation.z,
+                ]
+            )
 
             return translation, rotation
 
@@ -707,6 +726,7 @@ class IntegratedDetectionNode(LifecycleNode):
         """
         3D 바운딩 박스 변환
         """
+
         # Quaternion-vector multiplication
         def qv_mult(q: np.ndarray, v: np.ndarray) -> np.ndarray:
             q = np.array(q, dtype=np.float64)
@@ -717,14 +737,19 @@ class IntegratedDetectionNode(LifecycleNode):
             return v + 2 * (uv * q[0] + uuv)
 
         # Position 변환
-        position = qv_mult(
-            rotation,
-            np.array([
-                bbox.center.position.x,
-                bbox.center.position.y,
-                bbox.center.position.z,
-            ])
-        ) + translation
+        position = (
+            qv_mult(
+                rotation,
+                np.array(
+                    [
+                        bbox.center.position.x,
+                        bbox.center.position.y,
+                        bbox.center.position.z,
+                    ]
+                ),
+            )
+            + translation
+        )
 
         bbox.center.position.x = position[0]
         bbox.center.position.y = position[1]
@@ -737,6 +762,7 @@ class IntegratedDetectionNode(LifecycleNode):
         bbox.size.z = abs(size[2])
 
         return bbox
+
 
 def main():
     rclpy.init()

@@ -24,7 +24,7 @@ setup(
             "tracking_node = yolo_ros.tracking_node:main",
             "detect_3d_node = yolo_ros.detect_3d_node:main",
             "position = yolo_ros.position_client:main",
-            "obj_detection = yolo_ros.obj_detection:main"
+            "obj_detection = yolo_ros.obj_detection:main",
         ],
     },
 )

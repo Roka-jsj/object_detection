@@ -22,7 +22,7 @@ RUN apt update && rosdep install --from-paths src --ignore-src -r -y && rm -rf /
 RUN if [ "$(lsb_release -rs | cut -d. -f1)" -ge 24 ]; then \
     pip3 install -r src/requirements.txt --break-system-packages --ignore-installed --no-cache-dir; \
     else \
-    pip3 install -r src/requirements.txt --no-cache-dir; \
+    pip3 install -r src/requirements.txt --ignore-installed --no-cache-dir; \
     fi
 
 FROM deps AS builder

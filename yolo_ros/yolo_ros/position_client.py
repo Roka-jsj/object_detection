@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from yolo_msgs.srv import GetTargetPosition
 
+
 class PositionClient(Node):
 
     def __init__(self):
@@ -45,6 +46,7 @@ def main():
     print(f"z: {res.z:.2f}")
     print(f"distance: {res.distance:.2f}")
     print(f"frame: {res.frame_id}")
+
 
 if __name__ == "__main__":
     main()

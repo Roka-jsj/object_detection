@@ -46,7 +46,6 @@ from yolo_msgs.msg import BoundingBox3D
 from yolo_msgs.srv import GetTargetPosition
 
 
-
 class Detect3DNode(LifecycleNode):
     """
     ROS 2 Lifecycle Node for 3D object detection.
@@ -64,15 +63,14 @@ class Detect3DNode(LifecycleNode):
         """
         super().__init__("bbox3d_node")
 
-
         self.declare_parameter("color_info_topic", "/camera/color/camera_info")
         self._color_info = None
         self._sub_color_info = self.create_subscription(
-        CameraInfo,
-        self.get_parameter("color_info_topic").value,
-        self._on_color_info,
-        10
-    )
+            CameraInfo,
+            self.get_parameter("color_info_topic").value,
+            self._on_color_info,
+            10,
+        )
 
         self._latest_depth_msg = None
         self._latest_depth_info_msg = None
@@ -86,8 +84,8 @@ class Detect3DNode(LifecycleNode):
         )
         self.declare_parameter("depth_info_reliability", QoSReliabilityPolicy.BEST_EFFORT)
         self.declare_parameter("service_name", "get_target_position")
-        self.declare_parameter("cache_timeout_sec", 1.0)      # 몇 초까지 유효로 볼지
-        self.declare_parameter("match_substring", True)       # red_cube vs "red cube" 대응
+        self.declare_parameter("cache_timeout_sec", 1.0)  # 몇 초까지 유효로 볼지
+        self.declare_parameter("match_substring", True)  # red_cube vs "red cube" 대응
         self.declare_parameter("use_tf", True)
 
         self._target_cache = {}
@@ -95,9 +93,10 @@ class Detect3DNode(LifecycleNode):
         # Auxiliary variables
         self.tf_buffer = Buffer()
         self.cv_bridge = CvBridge()
-    
+
     def _on_color_info(self, msg: CameraInfo):
         self._color_info = msg
+
     def _get_color_to_depth_scale(self, depth_image: np.ndarray):
         """
         Returns (sx, sy) to map coordinates from color image to depth image.
@@ -120,7 +119,6 @@ class Detect3DNode(LifecycleNode):
         sx = depth_w / float(color_w)
         sy = depth_h / float(color_h)
         return sx, sy
-
 
     def on_configure(self, state: LifecycleState) -> TransitionCallbackReturn:
         """
@@ -191,7 +189,6 @@ class Detect3DNode(LifecycleNode):
         srv_name = self.get_parameter("service_name").get_parameter_value().string_value
         self._srv = self.create_service(GetTargetPosition, srv_name, self.on_service)
         self.get_logger().info(f"GetTargetPosition service ready: {srv_name}")
-
 
         # Subs
         self.depth_sub = message_filters.Subscriber(
@@ -292,7 +289,6 @@ class Detect3DNode(LifecycleNode):
         self._update_cache(new_detections_msg)
         self._publish_object_tf(new_detections_msg)
 
-
     def process_detections(
         self,
         depth_msg: Image,
@@ -324,7 +320,6 @@ class Detect3DNode(LifecycleNode):
                     f"TF not available. Will keep bbox3d in frame '{depth_info_msg.header.frame_id}'"
                 )
 
-
         new_detections = []
         depth_image = self.cv_bridge.imgmsg_to_cv2(
             depth_msg, desired_encoding="passthrough"
@@ -337,13 +332,16 @@ class Detect3DNode(LifecycleNode):
                 new_detections.append(detection)
 
                 if transform is not None:
-                    bbox3d = Detect3DNode.transform_3d_box(bbox3d, transform[0], transform[1])
+                    bbox3d = Detect3DNode.transform_3d_box(
+                        bbox3d, transform[0], transform[1]
+                    )
                     bbox3d.frame_id = self.target_frame
                 else:
-                    bbox3d.frame_id = depth_info_msg.header.frame_id  # TF 없으면 카메라 기준
+                    bbox3d.frame_id = (
+                        depth_info_msg.header.frame_id
+                    )  # TF 없으면 카메라 기준
 
                 new_detections[-1].bbox3d = bbox3d
-
 
                 if detection.keypoints.data:
                     keypoints3d = self.convert_keypoints_to_3d(
@@ -359,7 +357,6 @@ class Detect3DNode(LifecycleNode):
                         keypoints3d.frame_id = depth_info_msg.header.frame_id
 
                     new_detections[-1].keypoints3d = keypoints3d
-
 
         return new_detections
 
@@ -582,21 +579,23 @@ class Detect3DNode(LifecycleNode):
 
         return np.mean(trimmed) if len(trimmed) > 0 else np.mean(values)
 
-    def convert_bb_to_3d(self, depth_image: np.ndarray, depth_info: CameraInfo, detection: Detection) -> BoundingBox3D:
+    def convert_bb_to_3d(
+        self, depth_image: np.ndarray, depth_info: CameraInfo, detection: Detection
+    ) -> BoundingBox3D:
         if depth_image is None or depth_image.size == 0:
             return None
 
         color_cx = float(detection.bbox.center.position.x)
         color_cy = float(detection.bbox.center.position.y)
-        color_w  = float(detection.bbox.size.x)
-        color_h  = float(detection.bbox.size.y)
+        color_w = float(detection.bbox.size.x)
+        color_h = float(detection.bbox.size.y)
 
         sx, sy = self._get_color_to_depth_scale(depth_image)
 
         depth_cx = color_cx * sx
         depth_cy = color_cy * sy
-        depth_w  = color_w  * sx
-        depth_h  = color_h  * sy
+        depth_w = color_w * sx
+        depth_h = color_h * sy
 
         img_h, img_w = depth_image.shape[:2]
         u_center = int(round(depth_cx))
@@ -615,7 +614,7 @@ class Detect3DNode(LifecycleNode):
         v_min = max(0, v_center - half_h)
         v_max = min(img_h - 1, v_center + half_h)
 
-        center_roi = depth_image[v_min:v_max+1, u_min:u_max+1].astype(np.float32)
+        center_roi = depth_image[v_min : v_max + 1, u_min : u_max + 1].astype(np.float32)
         valid_depths = center_roi[np.isfinite(center_roi) & (center_roi > 0)]
         if valid_depths.size == 0:
             return None
@@ -634,12 +633,12 @@ class Detect3DNode(LifecycleNode):
         # ✅ 실제 depth 좌표(u_center,v_center)로 역투영
         # 카메라 좌표계 계산: X=오른쪽(+), Y=아래쪽(+), Z=앞쪽(+)
         cam_x = z * (float(u_center) - px) / fx  # 오른쪽
-        cam_y = z * (float(v_center) - py) / fy   # 아래쪽
-        cam_z = z                                 # 전방
+        cam_y = z * (float(v_center) - py) / fy  # 아래쪽
+        cam_z = z  # 전방
 
         # 로봇 좌표계로 변환: X=전방, Y=좌우, Z=위아래
-        robot_x = cam_z   # 전방
-        robot_y = cam_x   # 오른쪽
+        robot_x = cam_z  # 전방
+        robot_y = cam_x  # 오른쪽
         robot_z = -cam_y  # 위쪽 (부호 반전)
 
         # 디버깅: 좌표 변환 확인
@@ -659,10 +658,14 @@ class Detect3DNode(LifecycleNode):
         msg.size.x = float(max(0.01, min(abs(w), abs(h))))  # depth (전방)
         msg.size.y = float(max(0.0, w))  # width (오른쪽 → 좌우)
         msg.size.z = float(max(0.0, h))  # height (아래쪽 → 위아래)
-        msg.distance = float(math.sqrt(msg.center.position.x**2 + msg.center.position.y**2 + msg.center.position.z**2))
+        msg.distance = float(
+            math.sqrt(
+                msg.center.position.x**2
+                + msg.center.position.y**2
+                + msg.center.position.z**2
+            )
+        )
         return msg
-
-
 
     @staticmethod
     def _compute_spatial_weights(
@@ -1178,43 +1181,45 @@ class Detect3DNode(LifecycleNode):
     def _publish_object_tf(self, det_array_msg: DetectionArray) -> None:
         """
         Publish TF transforms for detected objects.
-        
+
         Each detected object gets a TF frame with its class name as frame_id.
         Position only (no rotation).
-        
+
         @param det_array_msg Detection array message with 3D bounding boxes
         """
         if not det_array_msg.detections:
             return
-        
+
         current_time = self.get_clock().now()
-        
+
         for det in det_array_msg.detections:
             # Skip if no class name or bbox3d
             if not det.class_name or not det.bbox3d:
                 continue
-            
+
             # Skip if frame_id is not set
             if not det.bbox3d.frame_id:
                 continue
-            
+
             # Create transform
             t = TransformStamped()
             t.header.stamp = current_time.to_msg()
-            t.header.frame_id = str(det.bbox3d.frame_id)  # Parent frame (base_link or camera frame)
+            t.header.frame_id = str(
+                det.bbox3d.frame_id
+            )  # Parent frame (base_link or camera frame)
             t.child_frame_id = str(det.class_name)  # Child frame (class name)
-            
+
             # Set position
             t.transform.translation.x = float(det.bbox3d.center.position.x)
             t.transform.translation.y = float(det.bbox3d.center.position.y)
             t.transform.translation.z = float(det.bbox3d.center.position.z)
-            
+
             # No rotation (identity quaternion)
             t.transform.rotation.w = 1.0
             t.transform.rotation.x = 0.0
             t.transform.rotation.y = 0.0
             t.transform.rotation.z = 0.0
-            
+
             # Publish TF
             self.tf_broadcaster.sendTransform(t)
 
@@ -1223,18 +1228,18 @@ class Detect3DNode(LifecycleNode):
         response.x = 0.0
         response.y = 0.0
         response.z = 0.0
-        response.distance =0.0
+        response.distance = 0.0
         response.frame_id = ""
         response.success = False
 
         try:
             # 1. srv 요청 변수명 유연하게 처리 (target_name 또는 class_name)
             query = ""
-            if hasattr(request, 'target_name'):
+            if hasattr(request, "target_name"):
                 query = request.target_name.strip()
-            elif hasattr(request, 'class_name'):
+            elif hasattr(request, "class_name"):
                 query = request.class_name.strip()
-            
+
             key_q = self._norm_name(query)
             if not key_q:
                 self.get_logger().warn("[Service] Request name is empty.")
@@ -1242,7 +1247,7 @@ class Detect3DNode(LifecycleNode):
 
             # 2. stale(오래된 데이터) 제거 기준 시간을 5초로 넉넉하게 연장
             # (YOLO 연산 지연으로 인해 데이터가 너무 빨리 지워지는 것 방지)
-            timeout = 5.0 
+            timeout = 5.0
             now = time.time()
             stale = [k for k, v in self._target_cache.items() if (now - v[4]) > timeout]
             for k in stale:
@@ -1263,7 +1268,9 @@ class Detect3DNode(LifecycleNode):
 
             if found is None:
                 # 캐시에 찾고자 하는 물체가 없을 때 서버 쪽 로그 출력
-                self.get_logger().info(f"[Service] Target '{query}' not found in cache. Current cache keys: {list(self._target_cache.keys())}")
+                self.get_logger().info(
+                    f"[Service] Target '{query}' not found in cache. Current cache keys: {list(self._target_cache.keys())}"
+                )
                 return response
 
             # 정상적으로 찾았을 때 결과 반환
@@ -1271,10 +1278,12 @@ class Detect3DNode(LifecycleNode):
             response.x = float(x)
             response.y = -float(y)
             response.z = float(z)
-            response.distance = float(math.sqrt(response.x**2 + response.y**2 + response.z**2))
+            response.distance = float(
+                math.sqrt(response.x**2 + response.y**2 + response.z**2)
+            )
             response.frame_id = str(frame_id)
             response.success = True
-            
+
             self.get_logger().info(
                 f"[Service] Sent position for '{query}': X={x:.2f}, Y={y:.2f}, Z={z:.2f}, D={response.distance:.2f}"
             )
@@ -1282,9 +1291,7 @@ class Detect3DNode(LifecycleNode):
 
         except Exception as e:
             self.get_logger().error(f"[Service] GetTargetPosition error: {e}")
-            return response                                  
-
-
+            return response
 
     def convert_keypoints_to_3d(
         self,
@@ -1309,7 +1316,7 @@ class Detect3DNode(LifecycleNode):
         # Build an array of 2D keypoints
         keypoints_2d = np.array(
             [[float(p.point.x), float(p.point.y)] for p in detection.keypoints.data],
-            dtype=np.float32
+            dtype=np.float32,
         )
         # color -> depth scaling
         sx, sy = self._get_color_to_depth_scale(depth_image)
@@ -1341,15 +1348,16 @@ class Detect3DNode(LifecycleNode):
         # 카메라 좌표계 계산: X=오른쪽(+), Y=아래쪽(+), Z=앞쪽(+)
         cam_x = z * (v - px) / fx  # 오른쪽
         cam_y = z * (u - py) / fy  # 아래쪽
-        cam_z = z                  # 전방
+        cam_z = z  # 전방
 
         # 로봇 좌표계로 변환: X=전방, Y=좌우, Z=위아래
-        robot_x = cam_z   # 전방
-        robot_y = cam_x   # 오른쪽
+        robot_x = cam_z  # 전방
+        robot_y = cam_x  # 오른쪽
         robot_z = -cam_y  # 위쪽 (부호 반전)
 
         points_3d = (
-            np.dstack([robot_x, robot_y, robot_z]).reshape(-1, 3) / self.depth_image_units_divisor
+            np.dstack([robot_x, robot_y, robot_z]).reshape(-1, 3)
+            / self.depth_image_units_divisor
         )  # Convert to meters
 
         # Generate message

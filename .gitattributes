@@ -1,0 +1,8 @@
+# Normalize line endings: store LF in the repo, regardless of the OS used to edit.
+# Prevents Windows/WSL editors from producing whole-file CRLF diffs.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.pt binary
+*.png binary
+*.jpg binary
