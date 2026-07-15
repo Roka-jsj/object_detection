@@ -343,6 +343,7 @@ class IntegratedDetectionNode(LifecycleNode):
         response.x = 0.0
         response.y = 0.0
         response.z = 0.0
+        response.distance = 0.0
         response.frame_id = ""
         response.success = False
 
@@ -454,6 +455,7 @@ class IntegratedDetectionNode(LifecycleNode):
             response.x = float(bbox3d.center.position.x)
             response.y = float(bbox3d.center.position.y)
             response.z = float(bbox3d.center.position.z)
+            response.distance = float(bbox3d.distance)
             response.frame_id = str(bbox3d.frame_id)
             response.success = True
 
