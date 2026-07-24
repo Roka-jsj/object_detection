@@ -21,38 +21,7 @@
 
 ---
 
-## 2. 직접 구현한 부분과 상속받은 부분
-
-이 저장소는 오픈소스 [mgonzs13/yolo_ros](https://github.com/mgonzs13/yolo_ros) **4.5.1을 포크**한 것입니다. 아래 구분은 upstream 4.5.1 태그와 파일 단위로 비교해 확인한 내용입니다.
-
-### 저자가 새로 추가한 파일 (upstream에 존재하지 않음)
-
-| 파일 | 내용 |
-| :-- | :-- |
-| `yolo_ros/yolo_ros/obj_detection.py` | `IntegratedDetectionNode` — YOLO 추론과 3D 위치추정을 하나의 서비스로 묶은 라이프사이클 노드 |
-| `yolo_ros/yolo_ros/position_client.py` | `GetTargetPosition`을 호출해 결과를 출력하는 CLI 클라이언트 |
-| `yolo_msgs/srv/GetTargetPosition.srv` | 클래스명 → 3D 좌표 서비스 인터페이스 |
-
-### 저자가 수정한 파일
-
-| 파일 | 변경 내용 |
-| :-- | :-- |
-| `yolo_ros/yolo_ros/detect_3d_node.py` | upstream 대비 약 440줄 변경. `GetTargetPosition` 서비스, 객체별 TF 브로드캐스트, 컬러↔깊이 스케일링, 카메라→로봇 리매핑 추가 |
-| `yolo_bringup/launch/yolo.launch.py` | 기본 `model`을 저장소 내 `best.pt`로, `image_topic`을 `/camera/color/image_raw`로 변경. `use_3d` 기본값 `False` → `True`. `topic_tools`의 `throttle` 노드를 추가해 `/yolo/dbg_image`를 1 Hz로 `/yolo/photo`에 재발행 |
-| `yolo_ros/setup.py` | `obj_detection`, `position` 콘솔 엔트리포인트 추가 |
-| `yolo_ros/model/` | 학습 가중치 `best.pt`, `wooden_cube.pt` 추가 (각 약 22 MB, YOLOv8 계열 detection 모델) |
-
-### upstream에서 그대로 사용하는 부분
-
-파일 단위 비교 결과 아래는 upstream 4.5.1과 **내용이 동일**합니다.
-
-- `yolo_node.py` (2D 추론), `tracking_node.py` (추적), `debug_node.py` (시각화)
-- `Dockerfile`, `requirements.txt`
-- `yolo_msgs`의 메시지 정의(`SetClasses.srv` 포함), 런치 프레임워크 구조, 배포판별 CI 워크플로우
-
----
-
-## 3. 시스템 아키텍처
+## 2. 시스템 아키텍처
 
 `IntegratedDetectionNode`는 네 개의 토픽을 구독해 최신 메시지를 보관하고 있다가, 서비스 요청이 들어오면 아래 파이프라인을 1회 실행합니다.
 
@@ -96,7 +65,7 @@ upstream에서 상속한 상시 파이프라인(2D → 추적 → 3D → 디버�
 
 ---
 
-## 4. 동작 원리
+## 3. 동작 원리
 
 ### 4.1 서비스 콜백 처리 순서
 
@@ -114,7 +83,7 @@ upstream에서 상속한 상시 파이프라인(2D → 추적 → 3D → 디버�
 
 전체 콜백은 `try/except`로 감싸져 있어 예외 발생 시 로그를 남기고 실패 응답을 반환합니다.
 
-### 4.2 깊이 픽셀 탐색 (확장 링 스캔)
+### 3.2 깊이 픽셀 탐색 (확장 링 스캔)
 
 깊이 이미지에는 값이 0이거나 NaN인 픽셀이 존재할 수 있어, 박스 중심 한 점만 읽으면 값을 얻지 못할 수 있습니다. 이를 위해 중심에서 바깥으로 사각 링을 넓혀가며 첫 유효 픽셀을 찾습니다.
 
@@ -125,7 +94,7 @@ upstream에서 상속한 상시 파이프라인(2D → 추적 → 3D → 디버�
 
 > 코드 주석은 "스파이럴 탐색"으로 표기되어 있으나, 실제 구현은 나선이 아니라 체비쇼프(L∞) 거리 기준의 사각 링 스캔입니다.
 
-### 4.3 핀홀 역투영
+### 3.3 핀홀 역투영
 
 찾은 픽셀 `(u, v)`와 깊이 카메라 내부 파라미터 `k`로 3D 좌표를 계산합니다.
 
@@ -140,7 +109,7 @@ cam_z  = z
 
 `distance`는 리매핑 후 좌표의 유클리드 노름 `‖[robot_x, robot_y, robot_z]‖`로 계산해 응답에 포함합니다.
 
-### 4.4 카메라축 → 로봇축 리매핑
+### 3.4 카메라축 → 로봇축 리매핑
 
 코드는 카메라 광학 좌표계 값을 다음과 같이 재배치합니다.
 
@@ -150,11 +119,11 @@ robot_y =  cam_x
 robot_z = -cam_y
 ```
 
-### 4.5 컬러↔깊이 해상도 스케일링
+### 3.5 컬러↔깊이 해상도 스케일링
 
 추론은 컬러 프레임에서, 깊이 샘플링은 깊이 프레임에서 이뤄지므로 두 해상도가 다를 수 있습니다. `_get_color_to_depth_scale`은 **컬러 `CameraInfo`의 해상도**와 **깊이 이미지 배열(`depth_image.shape`)의 해상도**로 `(sx, sy) = (depth_w/color_w, depth_h/color_h)`를 계산합니다. 컬러 info가 없거나 두 해상도가 같으면 `(1.0, 1.0)`을 사용합니다.
 
-### 4.6 TF 변환
+### 3.6 TF 변환
 
 `tf_buffer.lookup_transform(target_frame, frame_id, rclpy.time.Time())`로 변환을 조회한 뒤, 쿼터니언-벡터 회전을 직접 구현한 `qv_mult`로 좌표를 변환합니다.
 
@@ -169,13 +138,13 @@ p_target = R(q) * p_source + t
 
 `TransformException`이 발생하면 경고를 남기고 깊이 카메라 프레임 기준 좌표를 반환하므로, 클라이언트는 응답의 `frame_id`로 기준 프레임을 확인해야 합니다.
 
-### 4.7 클래스명 정규화
+### 3.7 클래스명 정규화
 
 `_norm_name`은 문자열을 소문자로 바꾸고 영숫자만 남깁니다(`isalnum`). 따라서 `Wooden Cube`, `wooden_cube`, `woodencube`는 동일하게 취급됩니다.
 
 ---
 
-## 5. 기술 스택
+## 4. 기술 스택
 
 | 분류 | 사용 기술 |
 | :-- | :-- |
@@ -190,7 +159,7 @@ p_target = R(q) * p_source + t
 
 ---
 
-## 6. 프로젝트 구조
+## 5. 프로젝트 구조
 
 ```
 .
@@ -224,20 +193,17 @@ p_target = R(q) * p_source + t
 
 ---
 
-## 7. 설치 및 실행
+## 6. 설치 및 실행
 
-### 7.1 Docker
+### 6.1 Docker
 
 ```bash
-# ROS 2 배포판 선택: humble / iron / jazzy / kilted / rolling
-docker build --build-arg ROS_DISTRO=humble -t yolo_ros .
+docker pull jeongsj/object_detection
 
 docker run -it --gpus all --net host yolo_ros
 ```
 
-Dockerfile은 `deps`(시스템/ROS 의존성) → `builder`(colcon 빌드) 두 단계로 구성되며, Ubuntu 24.04 이상에서는 `pip3 install --break-system-packages` 분기를 사용합니다.
-
-### 7.2 네이티브 빌드 (colcon)
+### 6.2 네이티브 빌드 (colcon)
 
 ```bash
 mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
@@ -253,7 +219,7 @@ source install/setup.bash
 
 > `yolo.launch.py`의 `throttle` 노드는 `topic_tools` 패키지를 사용합니다. 해당 패키지가 설치되어 있지 않다면 `sudo apt install ros-$ROS_DISTRO-topic-tools`로 설치하십시오.
 
-### 7.3 서비스 노드 + 클라이언트 실행
+### 6.3 서비스 노드 + 클라이언트 실행
 
 ```bash
 # 1) RGB-D 카메라 드라이버가 아래 토픽을 발행해야 합니다.
@@ -272,7 +238,7 @@ ros2 run yolo_ros obj_detection --ros-args \
 ros2 run yolo_ros position wooden_cube
 ```
 
-### 7.4 상시 파이프라인 (bringup)
+### 6.4 상시 파이프라인 (bringup)
 
 ```bash
 ros2 launch yolo_bringup yolov8.launch.py
@@ -281,7 +247,7 @@ ros2 service call /yolo/get_target_position \
   yolo_msgs/srv/GetTargetPosition "{class_name: 'wooden_cube'}"
 ```
 
-### 7.5 `IntegratedDetectionNode` 파라미터
+### 6.5 `IntegratedDetectionNode` 파라미터
 
 | 파라미터 | 기본값 | 설명 |
 | :-- | :-- | :-- |
@@ -307,7 +273,7 @@ ros2 service call /yolo/get_target_position \
 
 ---
 
-## 8. 서비스 & 메시지 API
+## 7. 서비스 & 메시지 API
 
 ### `yolo_msgs/srv/GetTargetPosition`
 
@@ -333,7 +299,7 @@ ros2 service call /yolo/get_target_position \
 
 ---
 
-## 9. 지원 YOLO 변형
+## 8. 지원 YOLO 변형
 
 `yolo.launch.py`를 파라미터화한 래퍼 런치들이 함께 제공됩니다.
 
@@ -352,15 +318,3 @@ ros2 service call /yolo/get_target_position \
 - 정렬(`xywh`) 및 회전(OBB, `xywhr`) 박스 지원
 - 추적: ByteTrack / BoT-SORT
 - `use_tracking` / `use_3d` / `use_debug` 플래그로 파이프라인 구성 변경
-
----
-
-## 10. 기반 프로젝트 및 라이선스
-
-이 저장소는 **[mgonzs13/yolo_ros](https://github.com/mgonzs13/yolo_ros) 4.5.1** (저작자: Miguel Á. González-Santamarta) 의 포크입니다. 2절에 정리한 대로 `yolo_node`, `tracking_node`, `debug_node`, `Dockerfile`, `requirements.txt`, `yolo_msgs`의 메시지 정의와 런치 프레임워크는 upstream 코드를 그대로 사용합니다.
-
-원저작권·저자 표기(`CITATION.cff`, 각 소스 파일 헤더, `package.xml` / `setup.py`의 maintainer 필드, `LICENSE`)는 GPL-3.0 요구에 따라 보존합니다.
-
-### 라이선스
-
-이 저장소는 **GNU General Public License v3.0 (GPL-3.0)** 로 배포됩니다. 의존 라이브러리인 Ultralytics(`ultralytics==8.4.6`)는 **AGPL-3.0** 입니다. 자세한 내용은 [`LICENSE`](LICENSE)를 참조하십시오.
